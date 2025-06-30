@@ -1,0 +1,1950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Omi Card Game - Mobile</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        :root {
+            --primary-green: #2d5016;
+            --table-green: #1a4d1a;
+            --card-bg: #ffffff;
+            --border-color: #8B4513;
+            --shadow: rgba(0, 0, 0, 0.3);
+            --text-dark: #333;
+            --text-light: #666;
+            --team-a: #4CAF50;
+            --team-b: #2196F3;
+        }
+
+        /* Force minimum viewport height and prevent scrolling issues */
+        html {
+            height: 100%;
+            overflow-x: hidden;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #1a4d1a 0%, #2d5016 100%);
+            height: 100vh;
+            min-height: 100vh;
+            overflow-x: hidden;
+            font-size: 14px;
+            line-height: 1.4;
+            margin: 0;
+            padding: 0;
+            position: relative;
+        }
+
+        /* Enhanced responsive font sizing */
+        @media (max-width: 320px) {
+            body { font-size: 11px; }
+        }
+        @media (min-width: 321px) and (max-width: 480px) {
+            body { font-size: 12px; }
+        }
+        @media (min-width: 481px) and (max-width: 767px) {
+            body { font-size: 13px; }
+        }
+        @media (min-width: 768px) {
+            body { font-size: 16px; }
+        }
+
+        /* FIXED: More robust container layout */
+        .container {
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-box-orient: vertical;
+            -webkit-box-direction: normal;
+            -ms-flex-direction: column;
+            flex-direction: column;
+            width: 100%;
+            height: 100vh;
+            min-height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* FIXED: Consistent header sizing */
+        .header {
+            background: rgba(45, 80, 22, 0.95);
+            padding: 8px 12px;
+            border-bottom: 2px solid var(--border-color);
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-box-pack: justify;
+            -ms-flex-pack: justify;
+            justify-content: space-between;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+            -ms-flex-wrap: wrap;
+            flex-wrap: wrap;
+            gap: 8px;
+            -webkit-box-flex: 0;
+            -ms-flex: 0 0 auto;
+            flex: 0 0 auto;
+            height: 50px;
+            min-height: 50px;
+        }
+
+        @media (min-width: 768px) {
+            .header {
+                height: 60px;
+                min-height: 60px;
+                padding: 12px 16px;
+            }
+        }
+
+        .game-title {
+            color: white;
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+
+        .connection-status {
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+            gap: 6px;
+            color: #4CAF50;
+            font-size: 0.85rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4CAF50;
+            -webkit-animation: pulse 2s infinite;
+            animation: pulse 2s infinite;
+        }
+
+        @-webkit-keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* FIXED: Better game info panel layout */
+        .game-info {
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            -ms-flex-wrap: wrap;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            -webkit-box-flex: 0;
+            -ms-flex: 0 0 auto;
+            flex: 0 0 auto;
+            height: 70px;
+            min-height: 70px;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+        }
+
+        @media (min-width: 768px) {
+            .game-info {
+                height: 80px;
+                min-height: 80px;
+                padding: 12px;
+                gap: 12px;
+            }
+        }
+
+        .trump-display, .score-display, .game-status {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 8px;
+            padding: 8px;
+            box-shadow: 0 2px 4px var(--shadow);
+            -webkit-box-flex: 1;
+            -ms-flex: 1 1 120px;
+            flex: 1 1 120px;
+            min-width: 100px;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+
+        @media (min-width: 768px) {
+            .trump-display, .score-display, .game-status {
+                -ms-flex: 1 1 150px;
+                flex: 1 1 150px;
+                min-width: 140px;
+                padding: 12px;
+                font-size: 1rem;
+            }
+        }
+
+        .trump-suit {
+            font-size: 1.4rem;
+            margin-top: 4px;
+            line-height: 1;
+        }
+
+        .score-item {
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-box-pack: justify;
+            -ms-flex-pack: justify;
+            justify-content: space-between;
+            margin: 3px 0;
+            font-size: 0.85rem;
+        }
+
+        /* FIXED: Improved game table layout */
+        .game-table {
+            -webkit-box-flex: 1;
+            -ms-flex: 1 1 auto;
+            flex: 1 1 auto;
+            position: relative;
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+            -webkit-box-pack: center;
+            -ms-flex-pack: center;
+            justify-content: center;
+            padding: 16px;
+            min-height: 250px;
+            overflow: hidden;
+        }
+
+        @media (min-width: 768px) {
+            .game-table {
+                padding: 24px;
+                min-height: 350px;
+            }
+        }
+
+        /* FIXED: More consistent table surface sizing */
+        .table-surface {
+            position: relative;
+            width: 320px;
+            height: 240px;
+            max-width: calc(100vw - 32px);
+            max-height: calc(100vh - 280px);
+            background: radial-gradient(ellipse at center, #2d5016 0%, #1a4d1a 100%);
+            border-radius: 50%;
+            border: 4px solid var(--border-color);
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4);
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+            -webkit-box-pack: center;
+            -ms-flex-pack: center;
+            justify-content: center;
+        }
+
+        @media (min-width: 480px) {
+            .table-surface {
+                width: 400px;
+                height: 300px;
+            }
+        }
+
+        @media (min-width: 768px) {
+            .table-surface {
+                width: 500px;
+                height: 350px;
+                max-height: calc(100vh - 320px);
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .table-surface {
+                width: 600px;
+                height: 400px;
+                max-height: calc(100vh - 360px);
+            }
+        }
+
+        /* FIXED: Robust player positioning */
+        .player {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            padding: 6px 12px;
+            box-shadow: 0 2px 6px var(--shadow);
+            font-size: 0.75rem;
+            text-align: center;
+            border: 2px solid transparent;
+            min-width: 70px;
+            max-width: 120px;
+            word-wrap: break-word;
+            z-index: 10;
+            line-height: 1.2;
+        }
+
+        .player.team-a { border-color: var(--team-a); }
+        .player.team-b { border-color: var(--team-b); }
+        .player.current-turn {
+            background: #FFD700;
+            -webkit-animation: glow 2s infinite alternate;
+            animation: glow 2s infinite alternate;
+        }
+
+        @-webkit-keyframes glow {
+            from { box-shadow: 0 2px 6px var(--shadow); }
+            to { box-shadow: 0 2px 12px rgba(255, 215, 0, 0.6), 0 0 20px rgba(255, 215, 0, 0.3); }
+        }
+
+        @keyframes glow {
+            from { box-shadow: 0 2px 6px var(--shadow); }
+            to { box-shadow: 0 2px 12px rgba(255, 215, 0, 0.6), 0 0 20px rgba(255, 215, 0, 0.3); }
+        }
+
+        /* FIXED: More reliable player positioning */
+        .player-0 { 
+            top: -18px; 
+            left: 50%; 
+            -webkit-transform: translateX(-50%);
+            -ms-transform: translateX(-50%);
+            transform: translateX(-50%); 
+        }
+        .player-1 { 
+            right: -18px; 
+            top: 50%; 
+            -webkit-transform: translateY(-50%);
+            -ms-transform: translateY(-50%);
+            transform: translateY(-50%); 
+        }
+        .player-2 { 
+            bottom: -18px; 
+            left: 50%; 
+            -webkit-transform: translateX(-50%);
+            -ms-transform: translateX(-50%);
+            transform: translateX(-50%); 
+        }
+        .player-3 { 
+            left: -18px; 
+            top: 50%; 
+            -webkit-transform: translateY(-50%);
+            -ms-transform: translateY(-50%);
+            transform: translateY(-50%); 
+        }
+
+        @media (min-width: 768px) {
+            .player {
+                font-size: 0.85rem;
+                padding: 8px 16px;
+                min-width: 90px;
+                max-width: 140px;
+                border-radius: 20px;
+            }
+            
+            .player-0 { top: -22px; }
+            .player-1 { right: -22px; }
+            .player-2 { bottom: -22px; }
+            .player-3 { left: -22px; }
+        }
+
+        /* FIXED: Better trick area layout */
+        .trick-area {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            -webkit-transform: translate(-50%, -50%);
+            -ms-transform: translate(-50%, -50%);
+            transform: translate(-50%, -50%);
+            width: 120px;
+            height: 120px;
+            display: -ms-grid;
+            display: grid;
+            -ms-grid-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr;
+            -ms-grid-rows: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 6px;
+            padding: 6px;
+            z-index: 5;
+        }
+
+        @media (min-width: 768px) {
+            .trick-area {
+                width: 140px;
+                height: 140px;
+                gap: 8px;
+                padding: 8px;
+            }
+        }
+
+        .trick-card {
+            background: var(--card-bg);
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-box-orient: vertical;
+            -webkit-box-direction: normal;
+            -ms-flex-direction: column;
+            flex-direction: column;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+            -webkit-box-pack: center;
+            -ms-flex-pack: center;
+            justify-content: center;
+            font-size: 0.6rem;
+            font-weight: bold;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .trick-card .rank { 
+            font-size: 0.7rem; 
+            line-height: 1;
+        }
+        .trick-card .suit { 
+            font-size: 0.8rem; 
+            margin-top: 2px; 
+            line-height: 1;
+        }
+
+        /* FIXED: Completely reworked player hand for cross-browser compatibility */
+        .player-hand {
+            background: rgba(45, 80, 22, 0.95);
+            border-top: 2px solid var(--border-color);
+            -webkit-box-flex: 0;
+            -ms-flex: 0 0 auto;
+            flex: 0 0 auto;
+            height: 130px;
+            min-height: 130px;
+            width: 100%;
+            position: relative;
+            z-index: 20;
+            overflow: hidden;
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-box-orient: vertical;
+            -webkit-box-direction: normal;
+            -ms-flex-direction: column;
+            flex-direction: column;
+        }
+
+        @media (min-width: 768px) {
+            .player-hand {
+                height: 150px;
+                min-height: 150px;
+            }
+        }
+
+        .hand-label {
+            color: white;
+            font-size: 0.9rem;
+            font-weight: bold;
+            text-align: center;
+            margin: 8px 0 4px 0;
+            -webkit-box-flex: 0;
+            -ms-flex: 0 0 auto;
+            flex: 0 0 auto;
+            line-height: 1;
+        }
+
+        /* FIXED: Robust cards container with proper overflow handling */
+        .cards-container {
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-box-pack: start;
+            -ms-flex-pack: start;
+            justify-content: flex-start;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+            -ms-flex-wrap: nowrap;
+            flex-wrap: nowrap;
+            gap: 6px;
+            padding: 8px 12px;
+            -webkit-box-flex: 1;
+            -ms-flex: 1 1 auto;
+            flex: 1 1 auto;
+            overflow-x: auto;
+            overflow-y: hidden;
+            width: 100%;
+            /* Hide scrollbars cross-browser */
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        .cards-container::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* FIXED: Consistent card sizing across all browsers */
+        .card {
+            width: 48px;
+            height: 68px;
+            min-width: 48px;
+            min-height: 68px;
+            max-width: 48px;
+            max-height: 68px;
+            background: var(--card-bg);
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-box-orient: vertical;
+            -webkit-box-direction: normal;
+            -ms-flex-direction: column;
+            flex-direction: column;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+            -webkit-box-pack: center;
+            -ms-flex-pack: center;
+            justify-content: center;
+            cursor: pointer;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            font-weight: bold;
+            position: relative;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            -webkit-box-flex: 0;
+            -ms-flex: 0 0 auto;
+            flex: 0 0 auto;
+            margin: 0;
+            z-index: 100;
+            -webkit-transition: all 0.2s ease;
+            -o-transition: all 0.2s ease;
+            transition: all 0.2s ease;
+        }
+
+        .card .rank {
+            font-size: 9px;
+            line-height: 1;
+            margin-bottom: 2px;
+        }
+
+        .card .suit {
+            font-size: 12px;
+            line-height: 1;
+        }
+
+        /* Enhanced responsive card sizing */
+        @media (min-width: 360px) {
+            .card {
+                width: 52px;
+                height: 74px;
+                min-width: 52px;
+                min-height: 74px;
+                max-width: 52px;
+                max-height: 74px;
+            }
+            .card .rank { font-size: 10px; }
+            .card .suit { font-size: 13px; }
+        }
+
+        @media (min-width: 480px) {
+            .card {
+                width: 56px;
+                height: 80px;
+                min-width: 56px;
+                min-height: 80px;
+                max-width: 56px;
+                max-height: 80px;
+            }
+            .card .rank { font-size: 11px; }
+            .card .suit { font-size: 14px; }
+        }
+
+        @media (min-width: 768px) {
+            .card {
+                width: 60px;
+                height: 84px;
+                min-width: 60px;
+                min-height: 84px;
+                max-width: 60px;
+                max-height: 84px;
+            }
+            .card .rank { font-size: 12px; }
+            .card .suit { font-size: 16px; }
+        }
+
+        /* Card Colors */
+        .hearts, .diamonds { color: #dc3545; }
+        .clubs, .spades { color: #000; }
+
+        /* Enhanced Card States */
+        .card.playable {
+            border-color: #4CAF50;
+            box-shadow: 0 0 8px rgba(76, 175, 80, 0.4);
+            -webkit-transform: translateY(-2px);
+            -ms-transform: translateY(-2px);
+            transform: translateY(-2px);
+        }
+
+        .card.not-playable {
+            opacity: 0.5;
+            cursor: not-allowed;
+            -webkit-filter: grayscale(50%);
+            filter: grayscale(50%);
+        }
+
+        .card:hover:not(.not-playable) {
+            -webkit-transform: translateY(-4px);
+            -ms-transform: translateY(-4px);
+            transform: translateY(-4px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        /* FIXED: Join Screen */
+        .join-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1a4d1a 0%, #2d5016 100%);
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+            -webkit-box-pack: center;
+            -ms-flex-pack: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .join-form {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .join-form h2 {
+            color: var(--text-dark);
+            margin-bottom: 20px;
+            font-size: 1.4rem;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: bold;
+            color: var(--text-dark);
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 1rem;
+            -webkit-transition: border-color 0.2s;
+            -o-transition: border-color 0.2s;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: var(--team-a);
+        }
+
+        .btn {
+            background: var(--team-a);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            -webkit-transition: background 0.2s;
+            -o-transition: background 0.2s;
+            transition: background 0.2s;
+            width: 100%;
+            margin-top: 12px;
+        }
+
+        .btn:hover, .btn:active {
+            background: #45a049;
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* Messages */
+        .message-area {
+            position: fixed;
+            top: 70px;
+            left: 50%;
+            -webkit-transform: translateX(-50%);
+            -ms-transform: translateX(-50%);
+            transform: translateX(-50%);
+            z-index: 100;
+            width: 90%;
+            max-width: 400px;
+        }
+
+        .message {
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            text-align: center;
+            -webkit-animation: slideIn 0.3s ease;
+            animation: slideIn 0.3s ease;
+        }
+
+        .message.success { background: rgba(76, 175, 80, 0.9); }
+        .message.error { background: rgba(244, 67, 54, 0.9); }
+        .message.warning { background: rgba(255, 152, 0, 0.9); }
+
+        @-webkit-keyframes slideIn {
+            from { opacity: 0; -webkit-transform: translateY(-20px); transform: translateY(-20px); }
+            to { opacity: 1; -webkit-transform: translateY(0); transform: translateY(0); }
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; -webkit-transform: translateY(-20px); transform: translateY(-20px); }
+            to { opacity: 1; -webkit-transform: translateY(0); transform: translateY(0); }
+        }
+
+        /* Trump Selection */
+        .trump-selection {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+            -webkit-box-pack: center;
+            -ms-flex-pack: center;
+            justify-content: center;
+            z-index: 200;
+        }
+
+        .trump-modal {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            text-align: center;
+            width: 90%;
+            max-width: 400px;
+        }
+
+        .trump-options {
+            display: -ms-grid;
+            display: grid;
+            -ms-grid-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin: 20px 0;
+        }
+
+        .trump-option {
+            padding: 16px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            -webkit-transition: all 0.2s;
+            -o-transition: all 0.2s;
+            transition: all 0.2s;
+            font-size: 2rem;
+            background: white;
+        }
+
+        .trump-option:hover, .trump-option:active {
+            border-color: var(--team-a);
+            background: #f0f8f0;
+            -webkit-transform: scale(1.05);
+            -ms-transform: scale(1.05);
+            transform: scale(1.05);
+        }
+
+        /* Loading States */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--team-a);
+            border-radius: 50%;
+            -webkit-animation: spin 1s linear infinite;
+            animation: spin 1s linear infinite;
+        }
+
+        @-webkit-keyframes spin {
+            0% { -webkit-transform: rotate(0deg); transform: rotate(0deg); }
+            100% { -webkit-transform: rotate(360deg); transform: rotate(360deg); }
+        }
+
+        @keyframes spin {
+            0% { -webkit-transform: rotate(0deg); transform: rotate(0deg); }
+            100% { -webkit-transform: rotate(360deg); transform: rotate(360deg); }
+        }
+
+        /* Hidden */
+        .hidden { display: none !important; }
+
+        /* Utility Classes */
+        .text-center { text-align: center; }
+        .mb-1 { margin-bottom: 8px; }
+        .mb-2 { margin-bottom: 16px; }
+        .mt-1 { margin-top: 8px; }
+        .mt-2 { margin-top: 16px; }
+
+        /* FIXED: Better accessibility and reduced motion support */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                -webkit-animation-duration: 0.01ms !important;
+                animation-duration: 0.01ms !important;
+                -webkit-animation-iteration-count: 1 !important;
+                animation-iteration-count: 1 !important;
+                -webkit-transition-duration: 0.01ms !important;
+                -o-transition-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* High contrast mode */
+        @media (prefers-contrast: high) {
+            .card {
+                border-width: 3px;
+            }
+            .player {
+                border-width: 3px;
+            }
+        }
+
+        /* FIXED: iOS Safari specific fixes */
+        @supports (-webkit-touch-callout: none) {
+            .container {
+                height: -webkit-fill-available;
+            }
+            
+            body {
+                height: -webkit-fill-available;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Join Screen -->
+    <div id="joinScreen" class="join-screen">
+        <div class="join-form">
+            <h2>🎮 Join Omi Game</h2>
+            <div class="form-group">
+                <label for="playerName">Your Name:</label>
+                <input type="text" id="playerName" placeholder="Enter your name" maxlength="15" required>
+            </div>
+            <div class="form-group">
+                <label for="roomCode">Room Code:</label>
+                <input type="text" id="roomCode" placeholder="Enter room code" maxlength="10" required>
+            </div>
+            <div class="form-group">
+                <label for="teamSelect">Preferred Team:</label>
+                <select id="teamSelect">
+                    <option value="A">Team A (Green)</option>
+                    <option value="B">Team B (Blue)</option>
+                </select>
+            </div>
+            <button id="joinBtn" class="btn">Join Game</button>
+            <button id="reconnectBtn" class="btn" style="background: #FF9800; margin-top: 8px;">Reconnect</button>
+        </div>
+    </div>
+
+    <!-- Main Game Container -->
+    <div id="gameContainer" class="container hidden">
+        <!-- Header -->
+        <div class="header">
+            <div class="game-title">🎮 Omi</div>
+            <div class="connection-status">
+                <div class="status-dot"></div>
+                <span>Connected</span>
+            </div>
+        </div>
+
+        <!-- Game Info -->
+        <div class="game-info">
+            <div class="trump-display">
+                <div style="font-weight: bold; margin-bottom: 4px;">Trump:</div>
+                <div id="trumpSuit" class="trump-suit">-</div>
+            </div>
+            <div class="score-display">
+                <div style="font-weight: bold; margin-bottom: 6px;">Scores</div>
+                <div class="score-item">
+                    <span>Team A:</span>
+                    <span id="teamAScore">0</span>
+                </div>
+                <div class="score-item">
+                    <span>Team B:</span>
+                    <span id="teamBScore">0</span>
+                </div>
+            </div>
+            <div class="game-status">
+                <div id="gameStatus">Waiting for players...</div>
+            </div>
+        </div>
+
+        <!-- Game Table -->
+        <div class="game-table">
+            <div class="table-surface">
+                <!-- Players -->
+                <div id="player0" class="player player-0 team-a hidden">
+                    <div class="player-name">-</div>
+                    <div class="player-tricks">Tricks: 0</div>
+                </div>
+                <div id="player1" class="player player-1 team-b hidden">
+                    <div class="player-name">-</div>
+                    <div class="player-tricks">Tricks: 0</div>
+                </div>
+                <div id="player2" class="player player-2 team-a hidden">
+                    <div class="player-name">-</div>
+                    <div class="player-tricks">Tricks: 0</div>
+                </div>
+                <div id="player3" class="player player-3 team-b hidden">
+                    <div class="player-name">-</div>
+                    <div class="player-tricks">Tricks: 0</div>
+                </div>
+
+                <!-- Trick Area -->
+                <div class="trick-area" id="trickArea">
+                    <!-- Trick cards will be inserted here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Player Hand -->
+        <div class="player-hand">
+            <div class="hand-label">Your Cards</div>
+            <div class="cards-container" id="playerCards">
+                <!-- Player's cards will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Message Area -->
+    <div class="message-area" id="messageArea"></div>
+
+    <!-- Trump Selection Modal -->
+    <div id="trumpSelection" class="trump-selection hidden">
+        <div class="trump-modal">
+            <h3>Select Trump Suit</h3>
+            <p>Choose from your 4 cards:</p>
+            <div id="trumpCards" class="cards-container mb-2">
+                <!-- Trump selection cards -->
+            </div>
+            <div class="trump-options">
+                <div class="trump-option" data-suit="Hearts">♥️</div>
+                <div class="trump-option" data-suit="Diamonds">♦️</div>
+                <div class="trump-option" data-suit="Clubs">♣️</div>
+                <div class="trump-option" data-suit="Spades">♠️</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        console.log('Script starting...');
+        
+        // Game State
+        let socket = null;
+        let gameState = {
+            playerName: '',
+            roomCode: '',
+            playerPosition: -1,
+            hand: [],
+            playableCards: [],
+            currentTurn: -1,
+            trump: null,
+            isMyTurn: false
+        };
+
+        // Suit symbols
+        const suitSymbols = {
+            'Hearts': '♥️',
+            'Diamonds': '♦️',
+            'Clubs': '♣️',
+            'Spades': '♠️'
+        };
+
+        // Browser detection and compatibility
+        const browserInfo = {
+            isIE: /*@cc_on!@*/false || !!document.documentMode,
+            isEdge: !/*@cc_on!@*/false && !!window.StyleMedia,
+            isFirefox: typeof InstallTrigger !== 'undefined',
+            isSafari: /constructor/i.test(window.HTMLElement) || (function (p) { return p.toString() === "[object SafariRemoteNotification]"; })(!window['safari'] || (typeof safari !== 'undefined' && safari.pushNotification)),
+            isChrome: !!window.chrome && !!window.chrome.webstore,
+            isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        };
+
+        // Cross-browser event listener setup
+        function addEventListenerSafe(element, event, handler) {
+            if (element.addEventListener) {
+                element.addEventListener(event, handler, false);
+            } else if (element.attachEvent) {
+                element.attachEvent('on' + event, handler);
+            } else {
+                element['on' + event] = handler;
+            }
+        }
+
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeGame);
+        } else {
+            initializeGame();
+        }
+
+        function initializeGame() {
+            console.log('Initializing game...');
+            
+            // Apply browser-specific fixes
+            applyBrowserSpecificFixes();
+            setupEventListeners();
+            
+            // Try auto-reconnect if we have stored data
+            try {
+                const stored = localStorage.getItem('omiGameData');
+                if (stored) {
+                    const data = JSON.parse(stored);
+                    const nameInput = document.getElementById('playerName');
+                    const roomInput = document.getElementById('roomCode');
+                    if (nameInput && data.playerName) nameInput.value = data.playerName;
+                    if (roomInput && data.roomCode) roomInput.value = data.roomCode;
+                }
+            } catch (e) {
+                console.log('No valid stored data');
+            }
+            
+            console.log('Game initialized successfully');
+        }
+
+        // Browser-specific compatibility fixes
+        function applyBrowserSpecificFixes() {
+            console.log('Applying browser fixes for:', browserInfo);
+            
+            // iOS Safari viewport height fix
+            if (browserInfo.isSafari && browserInfo.isMobile) {
+                const setVh = function() {
+                    const vh = window.innerHeight * 0.01;
+                    document.documentElement.style.setProperty('--vh', vh + 'px');
+                };
+                setVh();
+                addEventListenerSafe(window, 'resize', setVh);
+                addEventListenerSafe(window, 'orientationchange', setVh);
+            }
+
+            // IE11 flexbox fixes
+            if (browserInfo.isIE) {
+                const containers = document.querySelectorAll('.container, .cards-container, .game-info');
+                for (let i = 0; i < containers.length; i++) {
+                    containers[i].style.display = '-ms-flexbox';
+                }
+            }
+
+            // Firefox scrollbar fixes
+            if (browserInfo.isFirefox) {
+                const cardsContainers = document.querySelectorAll('.cards-container');
+                for (let i = 0; i < cardsContainers.length; i++) {
+                    cardsContainers[i].style.scrollbarWidth = 'none';
+                }
+            }
+        }
+
+        function setupEventListeners() {
+            console.log('Setting up event listeners...');
+            
+            // Get elements
+            const joinBtn = document.getElementById('joinBtn');
+            const reconnectBtn = document.getElementById('reconnectBtn');
+            const playerNameInput = document.getElementById('playerName');
+            const roomCodeInput = document.getElementById('roomCode');
+            
+            if (!joinBtn || !reconnectBtn || !playerNameInput || !roomCodeInput) {
+                console.error('Required elements not found');
+                return;
+            }
+            
+            // Join button
+            addEventListenerSafe(joinBtn, 'click', function() {
+                console.log('Join button clicked');
+                joinGame();
+            });
+            
+            // Reconnect button
+            addEventListenerSafe(reconnectBtn, 'click', function() {
+                console.log('Reconnect button clicked');
+                reconnectGame();
+            });
+            
+            // Enter key on inputs
+            addEventListenerSafe(playerNameInput, 'keypress', function(e) {
+                if (e.key === 'Enter' || e.keyCode === 13) {
+                    console.log('Enter pressed on name input');
+                    joinGame();
+                }
+            });
+            
+            addEventListenerSafe(roomCodeInput, 'keypress', function(e) {
+                if (e.key === 'Enter' || e.keyCode === 13) {
+                    console.log('Enter pressed on room input');
+                    joinGame();
+                }
+            });
+            
+            // Trump selection
+            const trumpOptions = document.querySelectorAll('.trump-option');
+            for (let i = 0; i < trumpOptions.length; i++) {
+                addEventListenerSafe(trumpOptions[i], 'click', function() {
+                    const suit = this.getAttribute('data-suit');
+                    console.log('Trump option clicked:', suit);
+                    selectTrump(suit);
+                });
+            }
+            
+            console.log('Event listeners set up successfully');
+        }
+
+        function joinGame() {
+            console.log('joinGame function called');
+            
+            const playerNameInput = document.getElementById('playerName');
+            const roomCodeInput = document.getElementById('roomCode');
+            const teamSelect = document.getElementById('teamSelect');
+            
+            if (!playerNameInput || !roomCodeInput || !teamSelect) {
+                console.error('Form elements not found');
+                showMessage('Form error. Please refresh the page.', 'error');
+                return;
+            }
+            
+            const playerName = playerNameInput.value.trim();
+            const roomCode = roomCodeInput.value.trim();
+            const team = teamSelect.value;
+            
+            console.log('Join attempt:', { playerName, roomCode, team });
+            
+            if (!playerName || !roomCode) {
+                showMessage('Please enter both name and room code', 'error');
+                return;
+            }
+            
+            if (playerName.length > 15) {
+                showMessage('Name must be 15 characters or less', 'error');
+                return;
+            }
+            
+            gameState.playerName = playerName;
+            gameState.roomCode = roomCode;
+            
+            // Store for reconnection
+            try {
+                localStorage.setItem('omiGameData', JSON.stringify({
+                    playerName: playerName,
+                    roomCode: roomCode
+                }));
+            } catch (e) {
+                console.log('localStorage not available');
+            }
+            
+            connectToServer(false, team);
+        }
+
+        function reconnectGame() {
+            console.log('reconnectGame function called');
+            
+            const playerNameInput = document.getElementById('playerName');
+            const roomCodeInput = document.getElementById('roomCode');
+            const teamSelect = document.getElementById('teamSelect');
+            
+            if (!playerNameInput || !roomCodeInput || !teamSelect) {
+                console.error('Form elements not found');
+                showMessage('Form error. Please refresh the page.', 'error');
+                return;
+            }
+            
+            const playerName = playerNameInput.value.trim();
+            const roomCode = roomCodeInput.value.trim();
+            const team = teamSelect.value;
+            
+            if (!playerName || !roomCode) {
+                showMessage('Please enter both name and room code', 'error');
+                return;
+            }
+            
+            gameState.playerName = playerName;
+            gameState.roomCode = roomCode;
+            
+            connectToServer(true, team);
+        }
+
+        function connectToServer(isReconnect, team) {
+            console.log('Connecting to server...', { isReconnect, team });
+            
+            if (typeof io === 'undefined') {
+                console.error('Socket.IO not loaded');
+                showMessage('Connection error. Please refresh the page.', 'error');
+                return;
+            }
+            
+            try {
+                socket = io();
+                
+                socket.on('connect', function() {
+                    console.log('Connected to server');
+                    showMessage('Connected to server', 'success');
+                    
+                    // Join room
+                    socket.emit('joinRoom', {
+                        room: gameState.roomCode,
+                        name: gameState.playerName,
+                        team: team,
+                        isReconnect: isReconnect
+                    });
+                });
+                
+                socket.on('disconnect', function() {
+                    console.log('Disconnected from server');
+                    showMessage('Disconnected from server', 'error');
+                    updateConnectionStatus(false);
+                });
+                
+                socket.on('connect_error', function(error) {
+                    console.error('Connection error:', error);
+                    showMessage('Connection failed: ' + error.message, 'error');
+                });
+                
+                // Game events
+                setupGameEventListeners();
+                
+            } catch (error) {
+                console.error('Connection error:', error);
+                showMessage('Failed to connect to server', 'error');
+            }
+        }
+
+        function setupGameEventListeners() {
+            console.log('Setting up game event listeners...');
+            
+            // Join success
+            socket.on('playerJoined', function(data) {
+                console.log('Player joined:', data);
+                showMessage(data.name + ' joined (' + data.playerCount + '/4 players)', 'success');
+                updatePlayers(data.players);
+                
+                // Hide join screen and show game
+                const joinScreen = document.getElementById('joinScreen');
+                const gameContainer = document.getElementById('gameContainer');
+                if (joinScreen) joinScreen.classList.add('hidden');
+                if (gameContainer) gameContainer.classList.remove('hidden');
+                updateConnectionStatus(true);
+            });
+            
+            // Game in progress (reconnection)
+            socket.on('gameInProgress', function(data) {
+                console.log('Game in progress:', data);
+                
+                // Restore game state
+                gameState.playerPosition = data.position;
+                gameState.hand = data.hand || [];
+                gameState.playableCards = data.playableCards || [];
+                gameState.currentTurn = data.currentPlayerIndex;
+                gameState.trump = data.trump;
+                gameState.isMyTurn = data.isYourTurn;
+                
+                // Update UI
+                const joinScreen = document.getElementById('joinScreen');
+                const gameContainer = document.getElementById('gameContainer');
+                if (joinScreen) joinScreen.classList.add('hidden');
+                if (gameContainer) gameContainer.classList.remove('hidden');
+                updateConnectionStatus(true);
+                
+                // Update all game elements
+                updateTrump(data.trump);
+                updateScores(data.scores);
+                updatePlayerHand(data.hand);
+                updatePlayers(data.players);
+                updateTrickArea(data.currentTrick);
+                updateGameStatus(data.gameState);
+                
+                if (data.isYourTurn) {
+                    showMessage('Your turn!', 'warning');
+                    highlightPlayableCards(data.playableCards);
+                }
+                
+                showMessage('Reconnected successfully!', 'success');
+            });
+            
+            // Trump selection
+            socket.on('canSelectTrump', function(data) {
+                console.log('Can select trump:', data);
+                showTrumpSelection(data.hand);
+                showMessage(data.message, 'warning');
+            });
+            
+            socket.on('waitingForTrump', function(data) {
+                console.log('Waiting for trump:', data);
+                showMessage(data.message, 'warning');
+                updateGameStatus('Waiting for trump selection...');
+            });
+            
+            socket.on('trumpSelected', function(data) {
+                console.log('Trump selected:', data);
+                hideTrumpSelection();
+                updateTrump(data.trump);
+                showMessage(data.message, 'success');
+                gameState.trump = data.trump;
+            });
+            
+            // Game flow events
+            socket.on('fullHand', function(data) {
+                console.log('Full hand received:', data);
+                gameState.hand = data.hand;
+                gameState.playerPosition = data.position;
+                updatePlayerHand(data.hand);
+                updateTrump(data.trump);
+            });
+            
+            socket.on('yourTurn', function(data) {
+                console.log('Your turn:', data);
+                gameState.isMyTurn = true;
+                gameState.playableCards = data.playableCards || [];
+                showMessage(data.message, 'warning');
+                highlightPlayableCards(data.playableCards);
+                updateGameStatus('Your turn');
+            });
+            
+            socket.on('turnUpdate', function(data) {
+                console.log('Turn update:', data);
+                gameState.currentTurn = data.currentPlayerIndex;
+                gameState.isMyTurn = false;
+                updateGameStatus(data.currentPlayer + "'s turn");
+                clearPlayableCards();
+            });
+            
+            socket.on('cardPlayed', function(data) {
+                console.log('Card played:', data);
+                showMessage(data.player + ' played ' + data.card.rank + ' of ' + data.card.suit, 'success');
+                addCardToTrick(data);
+            });
+            
+            socket.on('trickComplete', function(data) {
+                console.log('Trick complete:', data);
+                showMessage(data.winner + ' won the trick!', 'success');
+                updateScores(data.scores);
+                updateTricksWon(data.tricksWon);
+                
+                gameState.playableCards = [];
+                gameState.isMyTurn = false;
+                clearPlayableCards();
+                
+                setTimeout(function() {
+                    clearTrickArea();
+                }, 2000);
+            });
+            
+            socket.on('roundComplete', function(data) {
+                console.log('Round complete:', data);
+                const result = data.roundResult;
+                showMessage('Round complete! Team ' + result.winningTeam + ' scored ' + result.pointsAwarded + ' point(s)', 'success');
+                updateScores(data.newScores);
+            });
+            
+            socket.on('gameOver', function(data) {
+                console.log('Game over:', data);
+                showMessage(data.message, 'success');
+                updateGameStatus('Game Complete');
+                
+                setTimeout(function() {
+                    alert('🎉 ' + data.winner + ' wins!\n\nFinal Scores:\nTeam A: ' + data.finalScores.teamA + '\nTeam B: ' + data.finalScores.teamB);
+                }, 1000);
+            });
+            
+            socket.on('gameInterrupted', function(data) {
+                console.log('Game interrupted:', data);
+                showMessage(data.message, 'warning');
+                updateGameStatus('Game Paused');
+            });
+            
+            socket.on('gameResumed', function(data) {
+                console.log('Game resumed:', data);
+                showMessage(data.message, 'success');
+                updateGameStatus('Game Resumed');
+            });
+            
+            socket.on('playerLeft', function(data) {
+                console.log('Player left:', data);
+                showMessage(data.name + ' left the game', 'warning');
+            });
+            
+            socket.on('playerRejoined', function(data) {
+                console.log('Player rejoined:', data);
+                showMessage(data.name + ' rejoined the game', 'success');
+            });
+            
+            socket.on('error', function(data) {
+                console.error('Game error:', data);
+                showMessage(data.message, 'error');
+            });
+            
+            socket.on('roomClosed', function(data) {
+                console.log('Room closed:', data);
+                showMessage(data.message, 'error');
+                
+                setTimeout(function() {
+                    const joinScreen = document.getElementById('joinScreen');
+                    const gameContainer = document.getElementById('gameContainer');
+                    if (gameContainer) gameContainer.classList.add('hidden');
+                    if (joinScreen) joinScreen.classList.remove('hidden');
+                }, 2000);
+            });
+            
+            console.log('Game event listeners set up successfully');
+        }
+
+        // UI Update Functions
+        function updateConnectionStatus(connected) {
+            const statusElement = document.querySelector('.connection-status span');
+            const dotElement = document.querySelector('.status-dot');
+            
+            if (statusElement && dotElement) {
+                if (connected) {
+                    statusElement.textContent = 'Connected';
+                    dotElement.style.background = '#4CAF50';
+                } else {
+                    statusElement.textContent = 'Disconnected';
+                    dotElement.style.background = '#f44336';
+                }
+            }
+        }
+
+        function updatePlayers(players) {
+            if (!players) return;
+            
+            for (let i = 0; i < players.length; i++) {
+                const player = players[i];
+                const playerElement = document.getElementById('player' + i);
+                
+                if (playerElement) {
+                    if (player) {
+                        playerElement.classList.remove('hidden');
+                        const nameElement = playerElement.querySelector('.player-name');
+                        if (nameElement) nameElement.textContent = player.name;
+                        
+                        playerElement.className = 'player player-' + i + ' team-' + player.team.toLowerCase();
+                        
+                        if (i === gameState.currentTurn) {
+                            playerElement.classList.add('current-turn');
+                        }
+                    } else {
+                        playerElement.classList.add('hidden');
+                    }
+                }
+            }
+        }
+
+        function updatePlayerHand(hand) {
+            const cardsContainer = document.getElementById('playerCards');
+            if (!cardsContainer) return;
+            
+            cardsContainer.innerHTML = '';
+            
+            if (!hand || hand.length === 0) return;
+            
+            for (let i = 0; i < hand.length; i++) {
+                const card = hand[i];
+                if (!card) continue;
+                
+                const cardElement = createCardElement(card, i);
+                cardsContainer.appendChild(cardElement);
+            }
+        }
+
+        function createCardElement(card, index) {
+            const cardDiv = document.createElement('div');
+            cardDiv.className = 'card';
+            cardDiv.setAttribute('data-index', index);
+            
+            const suitClass = card.suit.toLowerCase();
+            cardDiv.classList.add(suitClass);
+            
+            cardDiv.innerHTML = '<div class="rank">' + card.rank + '</div><div class="suit">' + suitSymbols[card.suit] + '</div>';
+            
+            addEventListenerSafe(cardDiv, 'click', function() {
+                console.log('Card clicked: index ' + index + ', card:', card);
+                playCard(index);
+            });
+            
+            return cardDiv;
+        }
+
+        function highlightPlayableCards(playableIndices) {
+            console.log('Highlighting playable cards:', playableIndices);
+            
+            clearPlayableCards();
+            
+            const allCards = document.querySelectorAll('.card');
+            
+            if (!playableIndices || playableIndices.length === 0) {
+                for (let i = 0; i < allCards.length; i++) {
+                    allCards[i].classList.add('not-playable');
+                }
+                return;
+            }
+            
+            for (let i = 0; i < allCards.length; i++) {
+                const card = allCards[i];
+                const cardIndex = parseInt(card.getAttribute('data-index'));
+                
+                let isPlayable = false;
+                for (let j = 0; j < playableIndices.length; j++) {
+                    if (playableIndices[j] === cardIndex) {
+                        isPlayable = true;
+                        break;
+                    }
+                }
+                
+                if (isPlayable) {
+                    card.classList.add('playable');
+                    card.classList.remove('not-playable');
+                } else {
+                    card.classList.add('not-playable');
+                    card.classList.remove('playable');
+                }
+            }
+        }
+
+        function clearPlayableCards() {
+            const allCards = document.querySelectorAll('.card');
+            for (let i = 0; i < allCards.length; i++) {
+                allCards[i].classList.remove('playable', 'not-playable');
+            }
+        }
+
+        function updateTrump(trump) {
+            const trumpElement = document.getElementById('trumpSuit');
+            if (trumpElement) {
+                if (trump) {
+                    trumpElement.textContent = suitSymbols[trump];
+                    trumpElement.className = 'trump-suit ' + trump.toLowerCase();
+                    gameState.trump = trump;
+                } else {
+                    trumpElement.textContent = '-';
+                    trumpElement.className = 'trump-suit';
+                }
+            }
+        }
+
+        function updateScores(scores) {
+            if (!scores) return;
+            
+            const teamAElement = document.getElementById('teamAScore');
+            const teamBElement = document.getElementById('teamBScore');
+            if (teamAElement) teamAElement.textContent = scores.teamA || 0;
+            if (teamBElement) teamBElement.textContent = scores.teamB || 0;
+        }
+
+        function updateTricksWon(tricksWon) {
+            if (!tricksWon) return;
+            
+            for (let i = 0; i < tricksWon.length; i++) {
+                const playerElement = document.getElementById('player' + i);
+                if (playerElement && !playerElement.classList.contains('hidden')) {
+                    const tricksElement = playerElement.querySelector('.player-tricks');
+                    if (tricksElement) {
+                        tricksElement.textContent = 'Tricks: ' + tricksWon[i];
+                    }
+                }
+            }
+        }
+
+        function updateGameStatus(status) {
+            const statusElement = document.getElementById('gameStatus');
+            if (statusElement) {
+                statusElement.textContent = status;
+            }
+        }
+
+        let currentTrickCards = [];
+
+        function addCardToTrick(cardData) {
+            currentTrickCards.push(cardData);
+            updateTrickDisplay();
+        }
+
+        function updateTrickArea(trickCards) {
+            currentTrickCards = trickCards || [];
+            updateTrickDisplay();
+        }
+
+        function updateTrickDisplay() {
+            const trickArea = document.getElementById('trickArea');
+            if (!trickArea) return;
+            
+            trickArea.innerHTML = '';
+            
+            for (let i = 0; i < currentTrickCards.length; i++) {
+                const cardData = currentTrickCards[i];
+                const cardElement = document.createElement('div');
+                cardElement.className = 'trick-card';
+                
+                const card = cardData.card;
+                const suitClass = card.suit.toLowerCase();
+                cardElement.classList.add(suitClass);
+                
+                cardElement.innerHTML = '<div class="rank">' + card.rank + '</div><div class="suit">' + suitSymbols[card.suit] + '</div>';
+                
+                cardElement.style.gridArea = getTrickCardPosition(cardData.playerIndex);
+                trickArea.appendChild(cardElement);
+            }
+        }
+
+        function getTrickCardPosition(playerIndex) {
+            const positions = ['1 / 1', '1 / 2', '2 / 2', '2 / 1'];
+            return positions[playerIndex] || '1 / 1';
+        }
+
+        function clearTrickArea() {
+            currentTrickCards = [];
+            const trickArea = document.getElementById('trickArea');
+            if (trickArea) trickArea.innerHTML = '';
+        }
+
+        function showTrumpSelection(hand) {
+            const trumpModal = document.getElementById('trumpSelection');
+            const trumpCards = document.getElementById('trumpCards');
+            
+            if (trumpCards && hand) {
+                trumpCards.innerHTML = '';
+                for (let i = 0; i < hand.length; i++) {
+                    const card = hand[i];
+                    const cardElement = createCardElement(card, -1);
+                    cardElement.style.width = '60px';
+                    cardElement.style.height = '84px';
+                    cardElement.style.cursor = 'default';
+                    trumpCards.appendChild(cardElement);
+                }
+            }
+            
+            if (trumpModal) {
+                trumpModal.classList.remove('hidden');
+            }
+        }
+
+        function hideTrumpSelection() {
+            const trumpModal = document.getElementById('trumpSelection');
+            if (trumpModal) {
+                trumpModal.classList.add('hidden');
+            }
+        }
+
+        function selectTrump(suit) {
+            if (!socket) return;
+            
+            socket.emit('selectTrump', {
+                room: gameState.roomCode,
+                trump: suit
+            });
+            
+            hideTrumpSelection();
+            showMessage('You selected ' + suit + ' as trump', 'success');
+        }
+
+        function playCard(cardIndex) {
+            console.log('playCard called with index:', cardIndex);
+            
+            if (!gameState.isMyTurn) {
+                showMessage("It's not your turn!", 'error');
+                return;
+            }
+            
+            if (!gameState.hand[cardIndex]) {
+                showMessage("Invalid card selection!", 'error');
+                return;
+            }
+            
+            let isPlayable = false;
+            for (let i = 0; i < gameState.playableCards.length; i++) {
+                if (gameState.playableCards[i] === cardIndex) {
+                    isPlayable = true;
+                    break;
+                }
+            }
+            
+            if (!isPlayable) {
+                const card = gameState.hand[cardIndex];
+                const leadSuit = getCurrentTrickLeadSuit();
+                
+                let errorMessage = "You can't play that card!";
+                if (leadSuit && hasCardsOfSuit(leadSuit)) {
+                    errorMessage = 'Must follow suit! You have ' + leadSuit + ' cards to play.';
+                }
+                
+                showMessage(errorMessage, 'error');
+                return;
+            }
+            
+            if (!socket) {
+                showMessage("Not connected to server", 'error');
+                return;
+            }
+            
+            console.log('Playing card at index ' + cardIndex + ':', gameState.hand[cardIndex]);
+            
+            socket.emit('playCard', {
+                room: gameState.roomCode,
+                cardIndex: cardIndex
+            });
+            
+            gameState.hand[cardIndex] = null;
+            gameState.isMyTurn = false;
+            gameState.playableCards = [];
+            
+            updatePlayerHand(gameState.hand);
+            clearPlayableCards();
+            updateGameStatus('Waiting for other players...');
+        }
+
+        function getCurrentTrickLeadSuit() {
+            if (currentTrickCards.length === 0) return null;
+            return currentTrickCards[0].card.suit;
+        }
+
+        function hasCardsOfSuit(suit) {
+            for (let i = 0; i < gameState.hand.length; i++) {
+                const card = gameState.hand[i];
+                if (card && card.suit === suit) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function showMessage(text, type) {
+            console.log('Show message:', text, type);
+            
+            type = type || 'info';
+            const messageArea = document.getElementById('messageArea');
+            if (!messageArea) return;
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message ' + type;
+            messageDiv.textContent = text;
+            
+            messageArea.appendChild(messageDiv);
+            
+            setTimeout(function() {
+                if (messageDiv.parentNode) {
+                    messageDiv.parentNode.removeChild(messageDiv);
+                }
+            }, 4000);
+            
+            const messages = messageArea.querySelectorAll('.message');
+            if (messages.length > 3) {
+                messageArea.removeChild(messages[0]);
+            }
+        }
+
+        // Enhanced orientation and resize handling
+        function handleResize() {
+            applyBrowserSpecificFixes();
+            
+            const cards = document.querySelectorAll('.card');
+            for (let i = 0; i < cards.length; i++) {
+                const card = cards[i];
+                card.style.display = 'none';
+                void card.offsetHeight;
+                card.style.display = '';
+            }
+        }
+
+        // Debounce function for performance
+        function debounce(func, wait) {
+            let timeout;
+            return function() {
+                const context = this;
+                const args = arguments;
+                const later = function() {
+                    timeout = null;
+                    func.apply(context, args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        const debouncedResize = debounce(handleResize, 250);
+
+        // Event listeners for resize and orientation
+        addEventListenerSafe(window, 'orientationchange', function() {
+            setTimeout(debouncedResize, 100);
+        });
+
+        addEventListenerSafe(window, 'resize', debouncedResize);
+
+        // Prevent zoom on double tap (iOS Safari)
+        let lastTouchEnd = 0;
+        addEventListenerSafe(document, 'touchend', function(event) {
+            const now = (new Date()).getTime();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        });
+
+        // Prevent pull-to-refresh
+        addEventListenerSafe(document.body, 'touchstart', function(e) {
+            if (e.touches && e.touches.length === 1 && e.touches[0].clientY <= 10) {
+                e.preventDefault();
+            }
+        });
+
+        addEventListenerSafe(document.body, 'touchmove', function(e) {
+            if (e.touches && e.touches.length === 1) {
+                e.preventDefault();
+            }
+        });
+
+        // Console polyfill for older browsers
+        if (!window.console) {
+            window.console = {
+                log: function() {},
+                error: function() {},
+                warn: function() {},
+                info: function() {}
+            };
+        }
+
+        // Focus management for accessibility
+        function manageFocus() {
+            const formElements = document.querySelectorAll('input, select, button');
+            for (let i = 0; i < formElements.length; i++) {
+                if (!formElements[i].getAttribute('tabindex')) {
+                    formElements[i].setAttribute('tabindex', i + 1);
+                }
+            }
+        }
+
+        setTimeout(manageFocus, 100);
+
+        // Viewport meta tag adjustment
+        function adjustViewport() {
+            let viewport = document.querySelector("meta[name=viewport]");
+            if (!viewport) {
+                viewport = document.createElement('meta');
+                viewport.name = 'viewport';
+                document.head.appendChild(viewport);
+            }
+            
+            if (browserInfo.isMobile) {
+                viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+            } else {
+                viewport.content = 'width=device-width, initial-scale=1.0';
+            }
+        }
+
+        adjustViewport();
+
+        // Memory leak prevention
+        addEventListenerSafe(window, 'beforeunload', function() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+        });
+
+        // Enhanced error reporting
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            console.error('JavaScript Error: ', {
+                message: msg,
+                source: url,
+                line: lineNo,
+                column: columnNo,
+                error: error,
+                userAgent: navigator.userAgent,
+                browserInfo: browserInfo
+            });
+            
+            showMessage('An error occurred. Please refresh the page.', 'error');
+            return false;
+        };
+
+        // Network connectivity detection
+        function checkConnectivity() {
+            if ('onLine' in navigator) {
+                if (!navigator.onLine) {
+                    showMessage('You are offline. Please check your connection.', 'error');
+                    updateConnectionStatus(false);
+                }
+            }
+        }
+
+        addEventListenerSafe(window, 'online', function() {
+            showMessage('Connection restored!', 'success');
+            updateConnectionStatus(true);
+        });
+
+        addEventListenerSafe(window, 'offline', function() {
+            showMessage('Connection lost!', 'error');
+            updateConnectionStatus(false);
+        });
+
+        setTimeout(checkConnectivity, 1000);
+
+        // Touch event optimization for mobile
+        if (browserInfo.isMobile) {
+            addEventListenerSafe(document, 'contextmenu', function(e) {
+                if (e.target.classList.contains('card')) {
+                    e.preventDefault();
+                    return false;
+                }
+            });
+        }
+
+        console.log('Script loaded successfully');
+    </script>
+</body>
+</html>
