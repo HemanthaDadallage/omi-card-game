@@ -869,6 +869,43 @@
                 height: -webkit-fill-available;
             }
         }
+
+        /* Add style for player name under trick card */
+        .trick-player-name {
+            font-size: 0.65em;
+            color: #333;
+            margin-top: 2px;
+            text-align: center;
+            font-weight: normal;
+            opacity: 0.85;
+        }
+
+        /* Make previous-trick-area use the same layout as trick-area */
+        .previous-trick-area {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            -webkit-transform: translate(-50%, -50%);
+            -ms-transform: translate(-50%, -50%);
+            transform: translate(-50%, -50%);
+            width: 120px;
+            height: 120px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 6px;
+            padding: 6px;
+            z-index: 10;
+            background: rgba(255,255,255,0.01); /* transparent overlay */
+        }
+        @media (min-width: 768px) {
+            .previous-trick-area {
+                width: 140px;
+                height: 140px;
+                gap: 8px;
+                padding: 8px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -954,6 +991,11 @@
                 <div class="trick-area" id="trickArea">
                     <!-- Trick cards will be inserted here -->
                 </div>
+                <!-- Previous Trick Area -->
+                <div class="previous-trick-area" id="previousTrickArea" style="display:none;">
+                    <!-- Previous trick cards will be inserted here -->
+                </div>
+                <button id="showPreviousTrickBtn" style="position:absolute;top:10px;right:10px;z-index:10;">Show Previous Trick</button>
             </div>
         </div>
 
@@ -1308,6 +1350,7 @@
                 updatePlayerHand(data.hand);
                 updatePlayers(data.players);
                 updateTrickArea(data.currentTrick);
+                updatePreviousTrickArea(data.lastTrick);
                 updateGameStatus(data.gameState);
                 
                 if (data.isYourTurn) {
@@ -1383,6 +1426,7 @@
                 
                 setTimeout(function() {
                     clearTrickArea();
+                    updatePreviousTrickArea(data.lastTrick);
                 }, 2000);
             });
             
@@ -1609,6 +1653,8 @@
         }
 
         let currentTrickCards = [];
+        let lastTrickCards = [];
+        let previousTrickVisible = false;
 
         function addCardToTrick(cardData) {
             currentTrickCards.push(cardData);
@@ -1620,37 +1666,65 @@
             updateTrickDisplay();
         }
 
+        function updatePreviousTrickArea(trickCards) {
+            lastTrickCards = trickCards || [];
+            renderPreviousTrick();
+        }
+
         function updateTrickDisplay() {
             const trickArea = document.getElementById('trickArea');
             if (!trickArea) return;
-            
             trickArea.innerHTML = '';
-            
+            console.log('[DEBUG] updateTrickDisplay - currentTrickCards:', currentTrickCards);
             for (let i = 0; i < currentTrickCards.length; i++) {
                 const cardData = currentTrickCards[i];
+                console.log('[DEBUG] Rendering trick card:', cardData);
                 const cardElement = document.createElement('div');
                 cardElement.className = 'trick-card';
-                
                 const card = cardData.card;
                 const suitClass = card.suit.toLowerCase();
                 cardElement.classList.add(suitClass);
-                
-                cardElement.innerHTML = '<div class="rank">' + card.rank + '</div><div class="suit">' + suitSymbols[card.suit] + '</div>';
-                
+                cardElement.innerHTML =
+                    '<div class="rank">' + card.rank + '</div>' +
+                    '<div class="suit">' + suitSymbols[card.suit] + '</div>' +
+                    '<div class="trick-player-name">' + (cardData.playerName || '') + '</div>';
                 cardElement.style.gridArea = getTrickCardPosition(cardData.playerIndex);
                 trickArea.appendChild(cardElement);
             }
         }
 
-        function getTrickCardPosition(playerIndex) {
-            const positions = ['1 / 1', '1 / 2', '2 / 2', '2 / 1'];
-            return positions[playerIndex] || '1 / 1';
+        function renderPreviousTrick() {
+            const prevArea = document.getElementById('previousTrickArea');
+            if (!prevArea) return;
+            prevArea.innerHTML = '';
+            console.log('[DEBUG] renderPreviousTrick - lastTrickCards:', lastTrickCards);
+            for (let i = 0; i < lastTrickCards.length; i++) {
+                const cardData = lastTrickCards[i];
+                console.log('[DEBUG] Rendering previous trick card:', cardData, 'at position:', getTrickCardPosition(cardData.playerIndex));
+                const cardElement = document.createElement('div');
+                cardElement.className = 'trick-card';
+                const card = cardData.card;
+                const suitClass = card.suit.toLowerCase();
+                cardElement.classList.add(suitClass);
+                cardElement.innerHTML =
+                    '<div class="rank">' + card.rank + '</div>' +
+                    '<div class="suit">' + suitSymbols[card.suit] + '</div>' +
+                    '<div class="trick-player-name">' + (cardData.playerName || '') + '</div>';
+                cardElement.style.gridArea = getTrickCardPosition(cardData.playerIndex);
+                prevArea.appendChild(cardElement);
+            }
         }
 
         function clearTrickArea() {
             currentTrickCards = [];
             const trickArea = document.getElementById('trickArea');
             if (trickArea) trickArea.innerHTML = '';
+        }
+
+        function clearPreviousTrickArea() {
+            lastTrickCards = [];
+            const prevArea = document.getElementById('previousTrickArea');
+            if (prevArea) prevArea.innerHTML = '';
         }
 
         function showTrumpSelection(hand) {
@@ -1942,6 +2016,31 @@
                     return false;
                 }
             });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const btn = document.getElementById('showPreviousTrickBtn');
+            if (btn) {
+                btn.addEventListener('click', function() {
+                    previousTrickVisible = !previousTrickVisible;
+                    const prevArea = document.getElementById('previousTrickArea');
+                    if (previousTrickVisible) {
+                        btn.textContent = 'Hide Previous Trick';
+                        prevArea.style.display = 'block';
+                        renderPreviousTrick();
+                    } else {
+                        btn.textContent = 'Show Previous Trick';
+                        prevArea.style.display = 'none';
+                    }
+                });
+            }
+        });
+
+        // Add this function before updateTrickDisplay
+        function getTrickCardPosition(playerIndex) {
+            // Positions: 0 = top, 1 = right, 2 = bottom, 3 = left
+            const positions = ['1 / 1', '1 / 2', '2 / 2', '2 / 1'];
+            return positions[playerIndex] || '1 / 1';
         }
 
         console.log('Script loaded successfully');

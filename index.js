@@ -279,6 +279,7 @@ function initializeRoom(roomId) {
         round: 1,
         currentRoundIndex: 0, // Always 8 cards per player in Omi (single round game)
         lastTrickWinner: -1,
+        lastTrick: [], // Add to room state
         createdAt: Date.now(),
         lastActivity: Date.now()
     };
@@ -378,6 +379,9 @@ function getFullGameStateForPlayer(room, playerPosition) {
         
         // Current trick
         currentTrick: room.currentTrick || [],
+        
+        // Previous trick (history)
+        lastTrick: room.lastTrick || [],
         
         // Scores and stats
         scores: room.scores,
@@ -956,7 +960,12 @@ io.on('connection', (socket) => {
             room.tricksWon[winnerIndex]++;
             
             // Store trick cards for "last trick" display
-            const trickCards = room.currentTrick.map(t => t.card);
+            // Ensure lastTrick is always an array of 4 elements, each at their player position
+            const lastTrickArr = [null, null, null, null];
+            room.currentTrick.forEach(t => {
+                lastTrickArr[t.playerIndex] = { ...t };
+            });
+            room.lastTrick = lastTrickArr;
             
             // Clear current trick
             room.currentTrick = []; // ✅ This is critical - clear the trick
@@ -969,9 +978,10 @@ io.on('connection', (socket) => {
             io.to(roomId).emit('trickComplete', {
                 winner: winner.playerName,
                 winnerIndex,
-                trickCards,
+                trickCards: room.currentTrick,
                 scores: room.scores,
-                tricksWon: room.tricksWon
+                tricksWon: room.tricksWon,
+                lastTrick: room.lastTrick // Emit last trick for history
             });
             
             // Check if round/game is complete
